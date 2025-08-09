@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Shop Manager — Light / Dark</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#fff; --muted:#6b7280; --accent:#2563eb; --accent-2:#1e40af;
+    --danger:#ef4444; --radius:12px; --gap:12px; --text:#0f172a;
+  }
+  .dark{
+    --bg:#0b1220; --card:#0f1724; --muted:#9aa4b2; --accent:#60a5fa; --accent-2:#3b82f6;
+    --danger:#fb7185; --text:#e6eef8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,Segoe UI,system-ui,Arial;background:var(--bg);color:var(--text);padding:18px}
+  header{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:16px}
+  h1{font-size:18px;margin:0}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  input[type=text], select{padding:8px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);min-width:160px}
+  button{background:var(--accent);color:white;border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
+  button.ghost{background:transparent;color:var(--text);border:1px solid rgba(0,0,0,0.06)}
+  .layout{display:grid;grid-template-columns:260px 1fr;gap:var(--gap)}
+  .panel{background:var(--card);border-radius:var(--radius);padding:12px;box-shadow:0 6px 18px rgba(2,6,23,0.06)}
+  .sidebar h3{margin:0 0 10px 0;font-size:14px}
+  .cat-list{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto;padding-right:4px}
+  .cat-item{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .cat-item button{padding:6px;border-radius:8px}
+  .main-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+  .cards{display:flex;flex-direction:column;gap:12px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border:1px solid rgba(2,6,23,0.06);font-size:14px}
+  th{background:linear-gradient(180deg,rgba(0,0,0,0.02),transparent)}
+  td[contenteditable]{background:transparent;outline:none}
+  .row-actions{display:flex;gap:6px;justify-content:center}
+  .small{font-size:13px;color:var(--muted)}
+  .flex{display:flex;gap:8px;align-items:center}
+  .theme-toggle{background:transparent;border:1px solid rgba(0,0,0,0.06);padding:6px;border-radius:8px;color:var(--text)}
+  @media (max-width:880px){ .layout{grid-template-columns:1fr; } .sidebar{order:2} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Shop Manager</h1>
+  <div class="toolbar">
+    <input id="search" type="text" placeholder="Search item name..." />
+    <label class="flex small"><input id="selectAllPrint" type="checkbox" /> Select all for print</label>
+    <button id="btnPrint">Print Selected</button>
+    <button id="themeBtn" class="theme-toggle">Toggle Theme</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="panel sidebar">
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="newCat" type="text" placeholder="New category name" />
+      <button id="addCatBtn">Add</button>
+    </div>
+    <h3>Categories</h3>
+    <div class="cat-list" id="catList"></div>
+
+    <div style="margin-top:12px">
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <select id="activeCatSelect" style="flex:1"></select>
+        <button id="delCatBtn" class="ghost">Delete</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input id="newCol" type="text" placeholder="New column name" />
+        <button id="addColBtn" class="ghost">+ Col</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <select id="delColSelect" style="flex:1"></select>
+        <button id="delColBtn" class="ghost">Remove Col</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="panel">
+    <div class="main-head">
+      <div>
+        <strong id="activeTitle">—</strong>
+        <div class="small">Click a category to view and edit. Type directly into cells.</div>
+      </div>
+      <div class="flex">
+        <button id="addRowBtn" class="ghost">Add Row</button>
+      </div>
+    </div>
+
+    <div id="cards" class="cards"></div>
+  </main>
+</div>
+
+<script>
+/* Data model: data = {category: {columns:[], rows:[[],...] , selectedForPrint:bool}} */
+const KEY = 'shop_v3';
+let data = JSON.parse(localStorage.getItem(KEY) || '{}');
+let active = null;
+const els = {
+  catList: document.getElementById('catList'),
+  newCat: document.getElementById('newCat'),
+  addCatBtn: document.getElementById('addCatBtn'),
+  activeCatSelect: document.getElementById('activeCatSelect'),
+  delCatBtn: document.getElementById('delCatBtn'),
+  newCol: document.getElementById('newCol'),
+  addColBtn: document.getElementById('addColBtn'),
+  delColSelect: document.getElementById('delColSelect'),
+  delColBtn: document.getElementById('delColBtn'),
+  cards: document.getElementById('cards'),
+  activeTitle: document.getElementById('activeTitle'),
+  addRowBtn: document.getElementById('addRowBtn'),
+  search: document.getElementById('search'),
+  btnPrint: document.getElementById('btnPrint'),
+  selectAllPrint: document.getElementById('selectAllPrint'),
+  themeBtn: document.getElementById('themeBtn')
+};
+
+function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
+function ensureExample(){ if(Object.keys(data).length===0){ data['General']={columns:['Name','Price','Qty'],rows:[['Soap','25','10'],['Pen','12','40']], selected:true}; save(); } }
+ensureExample();
+
+function setActive(cat){
+  active = cat;
+  els.activeTitle.textContent = cat || '—';
+  updateSelectors();
+  render();
+}
+
+function addCategory(){
+  const name = els.newCat.value.trim();
+  if(!name) return alert('Enter a category name');
+  if(data[name]) return alert('Category exists');
+  data[name] = { columns:['Name'], rows:[], selected:false };
+  els.newCat.value='';
+  save(); setActive(name); rebuildCatList();
+}
+function deleteCategory(){
+  if(!active) return alert('Choose category');
+  if(!confirm(`Delete "${active}" and all its data?`)) return;
+  delete data[active];
+  save(); const keys = Object.keys(data); setActive(keys[0]||null); rebuildCatList();
+}
+function addColumn(){
+  if(!active) return alert('Select category');
+  const c = els.newCol.value.trim(); if(!c) return;
+  if(data[active].columns.includes(c)) return alert('Column exists');
+  data[active].columns.push(c);
+  data[active].rows.forEach(r=>r.push(''));
+  els.newCol.value=''; save(); updateColSelect(); render();
+}
+function deleteColumn(){
+  if(!active) return alert('Select category');
+  const idx = Number(els.delColSelect.value);
+  if(isNaN(idx)) return;
+  const col = data[active].columns[idx];
+  if(!confirm(`Remove column "${col}"? data lost in that column.`)) return;
+  data[active].columns.splice(idx,1);
+  data[active].rows.forEach(r=>r.splice(idx,1));
+  save(); updateColSelect(); render();
+}
+function addRow(){
+  if(!active) return alert('Select category');
+  data[active].rows.push(Array(data[active].columns.length).fill(''));
+  save(); render();
+}
+function deleteRow(cat,i){
+  if(!confirm('Delete row?')) return;
+  data[cat].rows.splice(i,1); save(); render();
+}
+function toggleSelectForPrint(cat, val){
+  data[cat].selected = val; save(); rebuildCatList();
+}
+function printSelected(){
+  const chosen = Object.keys(data).filter(c=>data[c].selected);
+  if(!chosen.length) return alert('Select categories to print (checkbox next to name)');
+  let html = '<html><head><title>Print</title><style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:6px}</style></head><body>';
+  chosen.forEach(cat=>{
+    html += `<h2>${cat}</h2><table><tr>${data[cat].columns.map(x=>`<th>${esc(x)}</th>`).join('')}</tr>`;
+    data[cat].rows.forEach(r=>{ html += '<tr>'+data[cat].columns.map((_,i)=>`<td>${esc(r[i]||'')}</td>`).join('')+'</tr>';});
+    html += '</table><br/>';
+  });
+  html += '</body></html>';
+  const w = window.open('','_blank','width=900,height=700'); w.document.write(html); w.document.close(); w.print();
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+/* UI builders */
+function rebuildCatList(){
+  els.catList.innerHTML=''; els.activeCatSelect.innerHTML='';
+  Object.keys(data).forEach(cat=>{
+    const wrap = document.createElement('div'); wrap.className='cat-item';
+    const left = document.createElement('label'); left.style.display='flex'; left.style.gap='8px'; 
+    const chk = document.createElement('input'); chk.type='checkbox'; chk.checked = !!data[cat].selected;
+    chk.addEventListener('change', ()=> toggleSelectForPrint(cat, chk.checked));
+    const btn = document.createElement('button'); btn.className='ghost'; btn.textContent=cat;
+    btn.addEventListener('click', ()=> setActive(cat));
+    left.appendChild(chk); left.appendChild(btn);
+    const right = document.createElement('div');
+    const count = document.createElement('span'); count.className='small'; count.textContent = `${data[cat].rows.length} rows`;
+    right.appendChild(count);
+    wrap.appendChild(left); wrap.appendChild(right);
+    els.catList.appendChild(wrap);
+
+    // also populate active select
+    const opt = document.createElement('option'); opt.value=cat; opt.text=cat;
+    els.activeCatSelect.appendChild(opt);
+  });
+  els.selectAllPrint.checked = Object.keys(data).length && Object.keys(data).every(c=>data[c].selected);
+}
+function updateSelectors(){
+  // set active selection in select lists
+  Array.from(els.activeCatSelect.options).forEach(o=> o.selected = (o.value === active));
+  updateColSelect();
+}
+function updateColSelect(){
+  els.delColSelect.innerHTML='';
+  if(!active || !data[active]) return;
+  data[active].columns.forEach((c,i)=>{ const o=document.createElement('option'); o.value=i; o.text=c; els.delColSelect.appendChild(o); });
+}
+
+/* render table(s) according to search */
+function render(){
+  els.cards.innerHTML=''; updateColSelect();
+  if(!active){ els.activeTitle.textContent='—'; return; }
+  els.activeTitle.textContent = active;
+  const search = els.search.value.trim().toLowerCase();
+  const cat = data[active];
+  const table = document.createElement('table');
+  const thead = document.createElement('thead'); const trh = document.createElement('tr');
+  cat.columns.forEach(c=>{ const th=document.createElement('th'); th.textContent=c; trh.appendChild(th); });
+  const thAct = document.createElement('th'); thAct.textContent='Actions'; trh.appendChild(thAct);
+  thead.appendChild(trh); table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  cat.rows.forEach((row,ridx)=>{
+    // if search is set, only show row if first col matches
+    if(search && !(row[0]||'').toLowerCase().includes(search)) return;
+    const tr = document.createElement('tr');
+    cat.columns.forEach((col,ci)=>{
+      const td = document.createElement('td'); td.contentEditable = true; td.spellcheck=false;
+      td.innerText = row[ci] || '';
+      td.addEventListener('input', (e)=>{ data[active].rows[ridx][ci] = e.target.innerText; save(); });
+      td.addEventListener('keydown', (e)=>{ if(e.key==='Tab'){ /* allow tab normal */ } });
+      tr.appendChild(td);
+    });
+    const tdAct = document.createElement('td'); tdAct.className='row-actions';
+    const del = document.createElement('button'); del.textContent='🗑'; del.title='Delete row';
+    del.addEventListener('click', ()=> deleteRow(active,ridx));
+    tdAct.appendChild(del); tr.appendChild(tdAct);
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  els.cards.appendChild(table);
+}
+
+/* wire events */
+els.addCatBtn.addEventListener('click', addCategory);
+els.delCatBtn.addEventListener('click', deleteCategory);
+els.addColBtn.addEventListener('click', addColumn);
+els.delColBtn.addEventListener('click', deleteColumn);
+els.activeCatSelect.addEventListener('change', (e)=> setActive(e.target.value));
+els.addRowBtn.addEventListener('click', addRow);
+els.search.addEventListener('input', render);
+els.btnPrint.addEventListener('click', printSelected);
+els.selectAllPrint.addEventListener('change', (e)=>{ Object.keys(data).forEach(c=> data[c].selected = e.target.checked); save(); rebuildCatList(); });
+els.themeBtn.addEventListener('click', ()=>{ document.documentElement.classList.toggle('dark'); localStorage.setItem('shop_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); });
+
+/* restore theme */
+if(localStorage.getItem('shop_theme') === 'dark') document.documentElement.classList.add('dark');
+
+/* init */
+rebuildCatList();
+setActive(Object.keys(data)[0] || null);
+render();
+</script>
+</body>
+</html>
