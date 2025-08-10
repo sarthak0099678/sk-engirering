@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>S.K Engineering - Tyres Shop</title>
+<style>
+    body { background: #eff6ff; color: #094067; font-family: Arial, sans-serif; }
+    .container { width: 95%; margin: 0 auto; padding: 32px 0; }
+    .category { margin-bottom: 36px; page-break-inside: avoid; }
+    .cat-title { background: #3b82f6; color: #fff; padding: 10px 16px; border-radius: 5px; margin-bottom: 10px; font-size:1.25em; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 12px;}
+    th, td { border: 1px solid #3b82f6; padding: 8px 4px; text-align: left; }
+    th { background: #e0e7ff; }
+    button { background: #3b82f6; color: #fff; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-top: 5px;}
+    button:hover { background: #1d4ed8; }
+    .delete-btn { background: red; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 4px;}
+    .delete-btn:hover { background: darkred; }
+    .print-btn { float: right; }
+    .print-all-container { text-align:center; margin-bottom:24px;}
+    @media (max-width:800px){
+        .container{width:100%;}
+        table{font-size:0.9em;}
+        .cat-title{font-size:1em;}
+    }
+    /* Hide Action column and buttons in print */
+    @media print {
+        .container { width: 100%; }
+        button, .delete-btn, .print-btn, .print-all-container { display: none !important; }
+        th:last-child, td:last-child { display: none; } /* Hide last column (Action) */
+    }
+</style>
+</head>
+<body>
+
+<div class="print-all-container">
+    <button onclick="printAllCategories()">🖨️ Print All</button>
+</div>
+
+<div class="container" id="mainContainer">
+    <!-- Categories will be injected here -->
+</div>
+
+<script>
+const initialData = {
+"Two Wheeler Tyres": [
+["2.75-17 4PR 41P ACTIZIPF3-D","","",""],
+["2.75-18 4PR 42P ACTIZIP F2","","",""],
+["2.75-18 6PR 48P ACTIGRIP R1-D","","",""],
+["2.75-18 6PR 48P ACTIGRIP R1-D","","",""],
+["3.00-17 6PR 50P ACTIGRIP R2-D","","",""],
+["3.00-18 6PR 52P ACTIGRIP R1-D","","",""],
+["3.00-18 6PR 52P ACTIGRIP R1-D","","",""],
+["3.00-17 6PR 50P ACTIGRIP R1-D","","",""],
+["80/100-18 54P ACTIGRIP R1-D","","",""],
+["80/100-17 53P ACTIGRIP R1 TL-D","","",""],
+["80/100-17 ACTIGRIP F2 TL-D","","",""],
+["90/90-17 49P ACTIGRIP F2 TL-D","","",""],
+["90/90-19 52P ACTIGRIP F6 TL-D","","",""],
+["90/100-10 53J ACTIZIP S1(TL)-D","","",""],
+["90/100-10 53J ACTIZIP S2(TL)-D","","",""],
+["90/100-10 53J ACTIGRIP S3-D","","",""],
+["90/100-10 53P ACTIGRIP S5(TL)-D","","",""],
+["90/90-12 54J ACTIZIP S2 (TL)-D","","",""],
+["100/80-17 52P ACTIZIP F5(TL)-D","","",""],
+["100/90-17 55P ACTIGRIP R1(TL)-D","","",""],
+["100/90-18 56P ACTIGRIP R1(TL)-D","","",""],
+["100/80-12 56L ACTIGRIP S7(TL)-D","","",""],
+["110/90-10 61J ACTIGRIP S5(TL)-D","","",""],
+["110/90-18 61P ACTIGRIP R4-D","","",""],
+["110/80-17 57P ACTIGRIP R4(TL)-D","","",""],
+["110/90-18 61P ACTIZIP R5(TL)D","","",""],
+["110/80-12 61L ACTIGRIP S7(TL)-D","","",""],
+["120/80-17 61P ACTIGRIPR4(TL)-D","","",""],
+["130/70-17 62P ACTIZIP R5(TL)-D","","",""],
+["140/70-17 66S ACTIZIP R5(TL)-D","","",""],
+["90/90-18 51P ACTIGRIP F8(TL)-D","","",""]
+],
+"Three Wheeler Tyres": [
+["3.75-12 4PR 66E TRISTAR-E(LOOSE)-D","","",""],
+["3.75-12 4PR 66E TRISTAR-ED","","",""],
+["90/90-12 64B TRISTAR-E(LOOSE)-D","","",""],
+["90/90-12 64B TRISTAR-E-D","","",""],
+["4.50-10 8PR 85E TRISTAR R-D","","",""],
+["4.50-10 850 8PR TRISTAR L-D","","",""]
+]
+// ... rest of the categories same as your file ...
+};
+
+function saveData(data) { localStorage.setItem('tyreShopData', JSON.stringify(data)); }
+function loadData() {
+    let stored = localStorage.getItem('tyreShopData');
+    if(stored) return JSON.parse(stored);
+    return JSON.parse(JSON.stringify(initialData));
+}
+
+function buildTables(data) {
+    const container = document.getElementById('mainContainer');
+    container.innerHTML = '';
+    Object.keys(data).forEach(category => {
+        let section = document.createElement('section');
+        section.className = 'category';
+        section.setAttribute('data-category', category);
+
+        let titleDiv = document.createElement('div');
+        titleDiv.className = 'cat-title';
+        titleDiv.textContent = category;
+
+        let printBtn = document.createElement('button');
+        printBtn.textContent = '🖨️ Print';
+        printBtn.className = 'print-btn';
+        printBtn.onclick = function(e){
+            e.stopPropagation();
+            printCategory(category);
+        };
+        titleDiv.appendChild(printBtn);
+        section.appendChild(titleDiv);
+
+        let table = document.createElement('table');
+        let thead = document.createElement('thead');
+        thead.innerHTML = `<tr>
+            <th>Name</th><th>Stock</th><th>Tube/TL</th><th>Price</th><th>Action</th>
+        </tr>`;
+        table.appendChild(thead);
+
+        let tbody = document.createElement('tbody');
+        data[category].forEach((row, idx) => {
+            tbody.appendChild(makeRow(category, row, idx, data));
+        });
+        table.appendChild(tbody);
+
+        section.appendChild(table);
+
+        let addBtn = document.createElement('button');
+        addBtn.textContent = '➕ Add Product';
+        addBtn.onclick = function(){
+            data[category].push(["","","",""]);
+            saveData(data);
+            buildTables(data);
+        }
+        section.appendChild(addBtn);
+
+        container.appendChild(section);
+    });
+}
+
+function makeRow(category, rowData, idx, data){
+    let tr = document.createElement('tr');
+    rowData.forEach((cell, colIdx) => {
+        let td = document.createElement('td');
+        td.textContent = cell;
+        td.ondblclick = function(){
+            let input = document.createElement('input');
+            input.type = 'text';
+            input.value = cell;
+            input.style.width = "100%";
+            input.onblur = function(){
+                td.textContent = input.value;
+                rowData[colIdx] = input.value;
+                saveData(data);
+            }
+            input.onkeydown = function(e){
+                if(e.key === "Enter"){ input.blur(); }
+            }
+            td.innerHTML = '';
+            td.appendChild(input);
+            input.focus();
+        }
+        tr.appendChild(td);
+    });
+    let actionTd = document.createElement('td');
+    let delBtn = document.createElement('button');
+    delBtn.className = 'delete-btn';
+    delBtn.innerHTML = '🗑️';
+    delBtn.onclick = function(){
+        data[category].splice(idx, 1);
+        saveData(data);
+        buildTables(data);
+    }
+    actionTd.appendChild(delBtn);
+    tr.appendChild(actionTd);
+    return tr;
+}
+
+function printCategory(categoryName) {
+    const allCategories = document.querySelectorAll('.category');
+    allCategories.forEach(section => {
+        if(section.getAttribute('data-category') !== categoryName){
+            section.style.display = 'none';
+        }
+    });
+    window.print();
+    setTimeout(() => {
+        allCategories.forEach(section => { section.style.display = ''; });
+    }, 100);
+}
+
+function printAllCategories() { window.print(); }
+
+let tyreData = loadData();
+buildTables(tyreData);
+</script>
+</body>
+</html>
